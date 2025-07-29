@@ -140,6 +140,7 @@ def main():
     
     # Use sequential processing for reliability
     print("Using sequential processing for maximum reliability")
+    print(f"MAX_BOOKS: {MAX_BOOKS}")
     all_books = scrape_pages(page_urls, MAX_BOOKS, None, 0)
     
     print(f"Total libros recolectados: {len(all_books)}")
@@ -150,8 +151,19 @@ def main():
     # Final progress update
     update_progress(len(all_books), MAX_BOOKS)
     
-    result = {'books': len(all_books), 'time': elapsed, 'data': all_books}
-    print(f"Returning result with {len(all_books)} books")
+    # Create a simplified version for the web response
+    simplified_books = []
+    for book in all_books:
+        simplified_books.append({
+            'title': book['title'],
+            'price': book['price'],
+            'availability': book['availability'],
+            'upc': book['upc'],
+            'url': book['url']
+        })
+    
+    result = {'books': len(all_books), 'time': elapsed, 'data': simplified_books}
+    print(f"Returning result with {len(all_books)} books (simplified)")
     return result
 
 if __name__ == '__main__':
