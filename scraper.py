@@ -7,7 +7,11 @@ from io import BytesIO
 
 BASE_URL = 'https://books.toscrape.com/'
 CATALOGUE_URL = BASE_URL + 'catalogue/'
-MAX_BOOKS = 100  
+MAX_BOOKS = 100
+
+# Ensure MAX_BOOKS is always 100
+if __name__ == '__main__':
+    MAX_BOOKS = 100  
 
 def get_all_page_urls():
     with sync_playwright() as p:
@@ -129,6 +133,8 @@ def worker(args):
 
 def main():
     start_time = time.time()
+    print(f"Starting scraper with MAX_BOOKS = {MAX_BOOKS}")
+    
     page_urls = get_all_page_urls()
     print(f"Procesando {len(page_urls)} páginas")
     
@@ -137,6 +143,7 @@ def main():
     needed_pages = (MAX_BOOKS + books_per_page - 1) // books_per_page
     page_urls = page_urls[:needed_pages]
     print(f"Needed pages: {needed_pages}, Total pages available: {len(page_urls)}")
+    print(f"Target books: {MAX_BOOKS}")
     
     # Use sequential processing for reliability
     print("Using sequential processing for maximum reliability")

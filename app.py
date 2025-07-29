@@ -53,16 +53,24 @@ def run_script():
         # Run script
         result = subprocess.run(['python3', 'scraper.py'], capture_output=True, text=True, check=True)
         
+        print(f"Scraper stdout: {result.stdout}")
+        print(f"Scraper stderr: {result.stderr}")
+        
         books, elapsed, books_data = 0, 0, []
         for line in result.stdout.splitlines():
             if line.strip().startswith('{') and 'books' in line:
-                stats = json.loads(line.strip())
-                books = stats.get('books', 0)
-                elapsed = stats.get('time', 0)
-                books_data = stats.get('data', [])
+                try:
+                    stats = json.loads(line.strip())
+                    books = stats.get('books', 0)
+                    elapsed = stats.get('time', 0)
+                    books_data = stats.get('data', [])
+                    print(f"Parsed result: books={books}, elapsed={elapsed}, data_length={len(books_data)}")
+                except json.JSONDecodeError as e:
+                    print(f"Error parsing JSON: {e}, line: {line}")
         
         # Generate Excel in memory
         if books_data:
+            print(f"Generating Excel with {len(books_data)} books")
             df = pd.DataFrame(books_data)
             excel_buffer = BytesIO()
             df.to_excel(excel_buffer, index=False)
@@ -71,6 +79,9 @@ def run_script():
             # Store in memory for download
             app.excel_data = excel_buffer.getvalue()
             app.excel_filename = f'books_{int(time.time())}.xlsx'
+            print(f"Excel file generated: {app.excel_filename}")
+        else:
+            print("No books data to generate Excel")
         
         return jsonify({'status': 'ok', 'books': books, 'time': elapsed, 'has_file': bool(books_data)})
     except Exception as e:
