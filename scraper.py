@@ -34,7 +34,7 @@ def update_progress(current, total, progress_file='progress.json'):
     except Exception as e:
         print(f"Error updating progress: {e}")
 
-def scrape_pages(page_urls, max_books, progress_dict, worker_id):
+def scrape_pages(page_urls, max_books, progress_dict=None, worker_id=0):
     all_books = []
     total_books = 0
     
@@ -101,11 +101,11 @@ def scrape_pages(page_urls, max_books, progress_dict, worker_id):
                 
                 total_books += 1
                 
-                # Update shared progress
-                progress_dict['current'] += 1
-                if progress_dict['current'] % 5 == 0:
-                    update_progress(progress_dict['current'], progress_dict['total'])
-                    print(f"Progreso global: {progress_dict['current']}/{progress_dict['total']} libros procesados")
+                # Update progress
+                total_books += 1
+                if total_books % 5 == 0:
+                    update_progress(total_books, max_books)
+                    print(f"Progreso: {total_books}/{max_books} libros procesados")
         
         detail_page.close()
         browser.close()
@@ -130,43 +130,9 @@ def main():
     needed_pages = (MAX_BOOKS + books_per_page - 1) // books_per_page
     page_urls = page_urls[:needed_pages]
     
-    # Check if running under Gunicorn with multiple workers
-    import os
-    gunicorn_workers = os.environ.get('GUNICORN_WORKERS', '1')
-    
-    if gunicorn_workers == '1':
-        # Single worker - use multiprocessing for speed
-        num_workers = min(4, cpu_count(), len(page_urls))
-        print(f"Single Gunicorn worker detected. Using {num_workers} scraper workers for speed.")
-        
-        # Initialize progress
-        update_progress(0, MAX_BOOKS)
-        
-        # Use Manager for shared progress
-        with Manager() as manager:
-            progress_dict = manager.dict()
-            progress_dict['current'] = 0
-            progress_dict['total'] = MAX_BOOKS
-            
-            # Prepare arguments for workers
-            books_per_worker = MAX_BOOKS // num_workers
-            extra_books = MAX_BOOKS % num_workers
-            
-            args = []
-            for i, chunk in enumerate(chunkify(page_urls, num_workers)):
-                worker_max_books = books_per_worker + (1 if i < extra_books else 0)
-                args.append((chunk, worker_max_books, progress_dict, i))
-            
-            # Run workers
-            with Pool(processes=num_workers) as pool:
-                results = pool.map(worker, args)
-        
-        # Combine results
-        all_books = [book for sublist in results for book in sublist][:MAX_BOOKS]
-    else:
-        # Multiple workers - use sequential processing to avoid conflicts
-        print(f"Multiple Gunicorn workers detected. Using sequential processing for stability.")
-        all_books = scrape_pages(page_urls, MAX_BOOKS, None, 0)
+    # Use sequential processing for reliability
+    print("Using sequential processing for maximum reliability")
+    all_books = scrape_pages(page_urls, MAX_BOOKS, None, 0)
     
     print(f"Total libros recolectados: {len(all_books)}")
     
