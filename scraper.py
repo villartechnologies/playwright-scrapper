@@ -130,8 +130,8 @@ def main():
     needed_pages = (MAX_BOOKS + books_per_page - 1) // books_per_page
     page_urls = page_urls[:needed_pages]
     
-    # Setup multiprocessing
-    num_workers = min(4, cpu_count(), len(page_urls))
+    # Setup multiprocessing - use fewer workers to avoid conflicts with Gunicorn
+    num_workers = min(2, cpu_count(), len(page_urls))
     chunks = chunkify(page_urls, num_workers)
     
     # Initialize progress
@@ -143,8 +143,14 @@ def main():
         progress_dict['current'] = 0
         progress_dict['total'] = MAX_BOOKS
         
-        # Prepare arguments for workers
-        args = [(chunk, MAX_BOOKS // num_workers, progress_dict, i) for i, chunk in enumerate(chunks)]
+        # Prepare arguments for workers - ensure we get exactly MAX_BOOKS
+        books_per_worker = MAX_BOOKS // num_workers
+        extra_books = MAX_BOOKS % num_workers
+        
+        args = []
+        for i, chunk in enumerate(chunks):
+            worker_max_books = books_per_worker + (1 if i < extra_books else 0)
+            args.append((chunk, worker_max_books, progress_dict, i))
         
         # Run workers
         with Pool(processes=num_workers) as pool:
