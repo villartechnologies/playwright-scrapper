@@ -113,7 +113,6 @@ def scrape_pages(page_urls, max_books, progress_dict=None, worker_id=0):
                 total_books += 1
                 
                 # Update progress
-                total_books += 1
                 if total_books % 5 == 0:
                     update_progress(total_books, max_books)
                     print(f"Progreso: {total_books}/{max_books} libros procesados")
