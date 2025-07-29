@@ -5,6 +5,7 @@ import json
 import threading
 import time
 import pandas as pd
+import glob
 from io import BytesIO
 from config import config
 
@@ -31,9 +32,25 @@ def progress():
     try:
         with open('progress.json', 'r') as f:
             data = json.load(f)
+        # Add script running status to progress data
+        data['script_running'] = script_running
         return jsonify(data), 200
     except Exception as e:
-        return jsonify({'progress': 0, 'current': 0, 'total': 100, 'error': str(e)}), 200
+        return jsonify({
+            'progress': 0, 
+            'current': 0, 
+            'total': 100, 
+            'error': str(e),
+            'script_running': script_running
+        }), 200
+
+@app.route('/status')
+def status():
+    """Endpoint to check if script is currently running"""
+    return jsonify({
+        'script_running': script_running,
+        'has_file': len(glob.glob('*.xlsx')) > 0
+    })
 
 @app.route('/run-script', methods=['POST'])
 def run_script():
@@ -41,7 +58,10 @@ def run_script():
     
     with script_lock:
         if script_running:
-            return jsonify({'status': 'error', 'message': 'Script already running'}), 409
+            return jsonify({
+                'status': 'error', 
+                'message': 'El script ya está ejecutándose. Por favor espera a que termine.'
+            }), 409
         
         script_running = True
     
