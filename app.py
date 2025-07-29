@@ -27,7 +27,7 @@ def run_script():
     try:
         with open('progress.json', 'w') as f:
             f.write('{"progress": 0}')
-        result = subprocess.run(['python', 'scraper.py'], capture_output=True, text=True, check=True)
+        result = subprocess.run(['python3', 'scraper.py'], capture_output=True, text=True, check=True)
         books, elapsed = 0, 0
         import json
         for line in result.stdout.splitlines():
