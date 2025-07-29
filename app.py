@@ -3,6 +3,9 @@ import subprocess
 import os
 import json
 import threading
+import time
+import pandas as pd
+from io import BytesIO
 from config import config
 
 app = Flask(__name__)
@@ -14,6 +17,10 @@ app.config.from_object(config[config_name])
 # Variable global para controlar ejecución
 script_running = False
 script_lock = threading.Lock()
+
+# Variables para almacenar datos del Excel en memoria
+app.excel_data = None
+app.excel_filename = None
 
 @app.route('/')
 def index():
@@ -46,14 +53,26 @@ def run_script():
         # Run script
         result = subprocess.run(['python3', 'scraper.py'], capture_output=True, text=True, check=True)
         
-        books, elapsed = 0, 0
+        books, elapsed, books_data = 0, 0, []
         for line in result.stdout.splitlines():
             if line.strip().startswith('{') and 'books' in line:
                 stats = json.loads(line.strip())
                 books = stats.get('books', 0)
                 elapsed = stats.get('time', 0)
+                books_data = stats.get('data', [])
         
-        return jsonify({'status': 'ok', 'books': books, 'time': elapsed})
+        # Generate Excel in memory
+        if books_data:
+            df = pd.DataFrame(books_data)
+            excel_buffer = BytesIO()
+            df.to_excel(excel_buffer, index=False)
+            excel_buffer.seek(0)
+            
+            # Store in memory for download
+            app.excel_data = excel_buffer.getvalue()
+            app.excel_filename = f'books_{int(time.time())}.xlsx'
+        
+        return jsonify({'status': 'ok', 'books': books, 'time': elapsed, 'has_file': bool(books_data)})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
@@ -61,7 +80,23 @@ def run_script():
 
 @app.route('/download')
 def download():
-    return send_file('books.xlsx', as_attachment=True)
+    if hasattr(app, 'excel_data') and app.excel_data:
+        return send_file(
+            BytesIO(app.excel_data),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=app.excel_filename
+        )
+    else:
+        return jsonify({'error': 'No file available'}), 404
+
+@app.route('/file-status')
+def file_status():
+    has_file = hasattr(app, 'excel_data') and app.excel_data is not None
+    return jsonify({
+        'has_file': has_file,
+        'filename': app.excel_filename if has_file else None
+    })
 
 @app.route('/styles.css')
 def styles():

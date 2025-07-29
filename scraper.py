@@ -1,5 +1,6 @@
 from playwright.sync_api import sync_playwright
 import pandas as pd
+from multiprocessing import Pool, cpu_count, Manager
 import time
 import json
 from io import BytesIO
@@ -33,13 +34,9 @@ def update_progress(current, total, progress_file='progress.json'):
     except Exception as e:
         print(f"Error updating progress: {e}")
 
-def scrape_pages(page_urls, max_books=MAX_BOOKS):
+def scrape_pages(page_urls, max_books, progress_dict, worker_id):
     all_books = []
     total_books = 0
-    progress_file = 'progress.json'
-    
-    # Initialize progress
-    update_progress(0, max_books, progress_file)
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -52,7 +49,7 @@ def scrape_pages(page_urls, max_books=MAX_BOOKS):
                 
             page.goto(page_url)
             books = page.query_selector_all('article.product_pod')
-            print(f"Libros encontrados en {page_url}: {len(books)}")
+            print(f"Worker {worker_id}: Libros encontrados en {page_url}: {len(books)}")
             
             for book in books:
                 if total_books >= max_books:
@@ -104,16 +101,24 @@ def scrape_pages(page_urls, max_books=MAX_BOOKS):
                 
                 total_books += 1
                 
-                # Update progress every 5 books
-                if total_books % 5 == 0:
-                    update_progress(total_books, max_books, progress_file)
-                    print(f"Progreso: {total_books}/{max_books} libros procesados")
+                # Update shared progress
+                progress_dict['current'] += 1
+                if progress_dict['current'] % 5 == 0:
+                    update_progress(progress_dict['current'], progress_dict['total'])
+                    print(f"Progreso global: {progress_dict['current']}/{progress_dict['total']} libros procesados")
         
         detail_page.close()
         browser.close()
     
-    print(f"Total libros recolectados: {len(all_books)}")
+    print(f"Worker {worker_id}: Total libros recolectados: {len(all_books)}")
     return all_books
+
+def chunkify(lst, n):
+    return [lst[i::n] for i in range(n)]
+
+def worker(args):
+    page_urls, max_books, progress_dict, worker_id = args
+    return scrape_pages(page_urls, max_books, progress_dict, worker_id)
 
 def main():
     start_time = time.time()
@@ -125,20 +130,37 @@ def main():
     needed_pages = (MAX_BOOKS + books_per_page - 1) // books_per_page
     page_urls = page_urls[:needed_pages]
     
-    # Scrape books
-    all_books = scrape_pages(page_urls, MAX_BOOKS)
+    # Setup multiprocessing
+    num_workers = min(4, cpu_count(), len(page_urls))
+    chunks = chunkify(page_urls, num_workers)
     
-    # Save to Excel in chunks to save memory
-    print("Guardando en Excel...")
-    df = pd.DataFrame(all_books)
-    df.to_excel('books.xlsx', index=False)
+    # Initialize progress
+    update_progress(0, MAX_BOOKS)
+    
+    # Use Manager for shared progress
+    with Manager() as manager:
+        progress_dict = manager.dict()
+        progress_dict['current'] = 0
+        progress_dict['total'] = MAX_BOOKS
+        
+        # Prepare arguments for workers
+        args = [(chunk, MAX_BOOKS // num_workers, progress_dict, i) for i, chunk in enumerate(chunks)]
+        
+        # Run workers
+        with Pool(processes=num_workers) as pool:
+            results = pool.map(worker, args)
+    
+    # Combine results
+    all_books = [book for sublist in results for book in sublist][:MAX_BOOKS]
+    
+    print(f"Total libros recolectados: {len(all_books)}")
     
     elapsed = time.time() - start_time
     
     # Final progress update
-    update_progress(len(all_books), MAX_BOOKS, 'progress.json')
+    update_progress(len(all_books), MAX_BOOKS)
     
-    return {'books': len(all_books), 'time': elapsed}
+    return {'books': len(all_books), 'time': elapsed, 'data': all_books}
 
 if __name__ == '__main__':
     result = main()
