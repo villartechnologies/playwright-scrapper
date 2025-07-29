@@ -78,31 +78,22 @@ def run_script():
             for line in result.stdout.splitlines()[-10:]:
                 print(f"  {line}")
         
-        # Generate Excel in memory - FORCE IT TO WORK!
+        # Generate Excel file on server - SIMPLE AND WORKS!
         print(f"Books data length: {len(books_data) if books_data else 0}")
         
         if books_data and len(books_data) > 0:
             print(f"Generating Excel with {len(books_data)} books")
             df = pd.DataFrame(books_data)
-            excel_buffer = BytesIO()
-            df.to_excel(excel_buffer, index=False)
-            excel_buffer.seek(0)
-            
-            # Store in memory for download
-            app.excel_data = excel_buffer.getvalue()
-            app.excel_filename = f'books_{int(time.time())}.xlsx'
-            print(f"✅ Excel file generated: {app.excel_filename}")
-            print(f"✅ Excel data size: {len(app.excel_data)} bytes")
+            filename = f'books_{int(time.time())}.xlsx'
+            df.to_excel(filename, index=False)
+            print(f"✅ Excel file saved: {filename}")
         else:
             print("❌ No books data to generate Excel")
             # Create a dummy Excel file for testing
             df = pd.DataFrame([{'title': 'Test Book', 'price': '£10.00', 'availability': 'In stock'}])
-            excel_buffer = BytesIO()
-            df.to_excel(excel_buffer, index=False)
-            excel_buffer.seek(0)
-            app.excel_data = excel_buffer.getvalue()
-            app.excel_filename = f'test_books_{int(time.time())}.xlsx'
-            print(f"✅ Test Excel file generated: {app.excel_filename}")
+            filename = f'test_books_{int(time.time())}.xlsx'
+            df.to_excel(filename, index=False)
+            print(f"✅ Test Excel file saved: {filename}")
         
         result_data = {'status': 'ok', 'books': books, 'time': elapsed, 'has_file': bool(books_data)}
         print(f"Returning result: {result_data}")
@@ -115,22 +106,25 @@ def run_script():
 
 @app.route('/download')
 def download():
-    if hasattr(app, 'excel_data') and app.excel_data:
-        return send_file(
-            BytesIO(app.excel_data),
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name=app.excel_filename
-        )
+    # Find the most recent Excel file
+    import glob
+    excel_files = glob.glob('*.xlsx')
+    if excel_files:
+        # Get the most recent file
+        latest_file = max(excel_files, key=os.path.getctime)
+        return send_file(latest_file, as_attachment=True)
     else:
         return jsonify({'error': 'No file available'}), 404
 
 @app.route('/file-status')
 def file_status():
-    has_file = hasattr(app, 'excel_data') and app.excel_data is not None
+    import glob
+    excel_files = glob.glob('*.xlsx')
+    has_file = len(excel_files) > 0
+    latest_file = max(excel_files, key=os.path.getctime) if excel_files else None
     return jsonify({
         'has_file': has_file,
-        'filename': app.excel_filename if has_file else None
+        'filename': latest_file
     })
 
 @app.route('/styles.css')
