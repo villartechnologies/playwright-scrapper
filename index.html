@@ -231,30 +231,46 @@ if __name__ == '__main__':
         
         // Ejecutar script y descargar Excel automáticamente
         document.getElementById("run-btn").onclick = async function() {
+            const button = document.getElementById("run-btn");
+            
+            // Bloquear el botón
+            button.disabled = true;
+            button.style.opacity = "0.6";
+            button.style.cursor = "not-allowed";
+            
             document.getElementById("progress").innerText = lang === "es" ? "Ejecutando..." : "Running...";
             document.getElementById("stats").style.display = "none";
             startProgressPolling();
             
-            const res = await fetch("/run-script", {method: "POST"});
-            stopProgressPolling();
-            
-            if (res.ok) {
-                const data = await res.json();
-                // Descargar el Excel desde /download
-                const a = document.createElement('a');
-                a.href = '/download';
-                a.download = 'books.xlsx';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
+            try {
+                const res = await fetch("/run-script", {method: "POST"});
+                stopProgressPolling();
                 
-                document.getElementById("progress").innerText = texts[lang].done;
-                // Mostrar stats reales
-                document.getElementById("stat-books").innerText = data.books;
-                document.getElementById("stat-time").innerText = parseFloat(data.time).toFixed(2) + 's';
-                document.getElementById("stats").style.display = "flex";
-            } else {
-                document.getElementById("progress").innerText = "Error";
+                if (res.ok) {
+                    const data = await res.json();
+                    // Descargar el Excel desde /download
+                    const a = document.createElement('a');
+                    a.href = '/download';
+                    a.download = 'books.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    
+                    document.getElementById("progress").innerText = texts[lang].done;
+                    // Mostrar stats reales
+                    document.getElementById("stat-books").innerText = data.books;
+                    document.getElementById("stat-time").innerText = parseFloat(data.time).toFixed(2) + 's';
+                    document.getElementById("stats").style.display = "flex";
+                } else {
+                    document.getElementById("progress").innerText = "Error";
+                }
+            } catch (error) {
+                document.getElementById("progress").innerText = "Error de conexión";
+            } finally {
+                // Desbloquear el botón
+                button.disabled = false;
+                button.style.opacity = "1";
+                button.style.cursor = "pointer";
             }
         };
     </script>

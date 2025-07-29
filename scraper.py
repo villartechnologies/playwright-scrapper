@@ -168,7 +168,7 @@ def main():
             'url': book['url']
         })
     
-    result = {'books': len(all_books), 'time': elapsed, 'data': simplified_books}
+    result = {'books': len(all_books), 'time': elapsed, 'data': all_books}
     print(f"Returning result with {len(all_books)} books (simplified)")
     return result
 
