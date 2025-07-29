@@ -37,6 +37,7 @@ def update_progress(current, total, progress_file='progress.json'):
 def scrape_pages(page_urls, max_books, progress_dict=None, worker_id=0):
     all_books = []
     total_books = 0
+    print(f"Starting to scrape {max_books} books from {len(page_urls)} pages")
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -45,6 +46,7 @@ def scrape_pages(page_urls, max_books, progress_dict=None, worker_id=0):
         
         for idx, page_url in enumerate(page_urls):
             if total_books >= max_books:
+                print(f"Reached max books limit: {total_books}")
                 break
                 
             page.goto(page_url)
@@ -53,6 +55,7 @@ def scrape_pages(page_urls, max_books, progress_dict=None, worker_id=0):
             
             for book in books:
                 if total_books >= max_books:
+                    print(f"Reached max books limit in inner loop: {total_books}")
                     break
                     
                 detail_href = book.query_selector('.image_container a').get_attribute('href')
@@ -125,23 +128,27 @@ def main():
     page_urls = get_all_page_urls()
     print(f"Procesando {len(page_urls)} páginas")
     
-    # Calculate needed pages
+    # Calculate needed pages - ensure we get exactly MAX_BOOKS
     books_per_page = 20
     needed_pages = (MAX_BOOKS + books_per_page - 1) // books_per_page
     page_urls = page_urls[:needed_pages]
+    print(f"Needed pages: {needed_pages}, Total pages available: {len(page_urls)}")
     
     # Use sequential processing for reliability
     print("Using sequential processing for maximum reliability")
     all_books = scrape_pages(page_urls, MAX_BOOKS, None, 0)
     
     print(f"Total libros recolectados: {len(all_books)}")
+    print(f"First book sample: {all_books[0] if all_books else 'No books'}")
     
     elapsed = time.time() - start_time
     
     # Final progress update
     update_progress(len(all_books), MAX_BOOKS)
     
-    return {'books': len(all_books), 'time': elapsed, 'data': all_books}
+    result = {'books': len(all_books), 'time': elapsed, 'data': all_books}
+    print(f"Returning result with {len(all_books)} books")
+    return result
 
 if __name__ == '__main__':
     result = main()
