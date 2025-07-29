@@ -212,30 +212,6 @@ if __name__ == '__main__':
         document.getElementById("en-btn").onclick = () => setLang("en");
         setLang("es");
 
-        // Check script status on page load
-        async function checkScriptStatus() {
-            try {
-                const res = await fetch('/status');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.script_running) {
-                        const button = document.getElementById("run-btn");
-                        button.disabled = true;
-                        button.style.opacity = "0.6";
-                        button.style.cursor = "not-allowed";
-                        document.getElementById("progress").innerText = lang === "es" ? 
-                            "Script ejecutándose..." : "Script running...";
-                        startProgressPolling();
-                    }
-                }
-            } catch (error) {
-                console.log("Could not check script status:", error);
-            }
-        }
-
-        // Check status when page loads
-        checkScriptStatus();
-
         let progressInterval = null;
         
         function startProgressPolling() {
@@ -244,15 +220,6 @@ if __name__ == '__main__':
                 if (res.ok) {
                     const data = await res.json();
                     document.getElementById('progress').innerText = `Progreso: ${data.progress}%`;
-                    
-                    // If script is no longer running, re-enable button
-                    if (!data.script_running) {
-                        const button = document.getElementById("run-btn");
-                        button.disabled = false;
-                        button.style.opacity = "1";
-                        button.style.cursor = "pointer";
-                        stopProgressPolling();
-                    }
                 }
             }, 1000);
         }
@@ -264,50 +231,30 @@ if __name__ == '__main__':
         
         // Ejecutar script y descargar Excel automáticamente
         document.getElementById("run-btn").onclick = async function() {
-            const button = document.getElementById("run-btn");
-            
-            // Deshabilitar el botón para evitar múltiples clicks
-            button.disabled = true;
-            button.style.opacity = "0.6";
-            button.style.cursor = "not-allowed";
-            
             document.getElementById("progress").innerText = lang === "es" ? "Ejecutando..." : "Running...";
             document.getElementById("stats").style.display = "none";
             startProgressPolling();
             
-            try {
-                const res = await fetch("/run-script", {method: "POST"});
-                stopProgressPolling();
+            const res = await fetch("/run-script", {method: "POST"});
+            stopProgressPolling();
+            
+            if (res.ok) {
+                const data = await res.json();
+                // Descargar el Excel desde /download
+                const a = document.createElement('a');
+                a.href = '/download';
+                a.download = 'books.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
                 
-                if (res.ok) {
-                    const data = await res.json();
-                    // Descargar el Excel desde /download
-                    const a = document.createElement('a');
-                    a.href = '/download';
-                    a.download = 'books.xlsx';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    
-                    document.getElementById("progress").innerText = texts[lang].done;
-                    // Mostrar stats reales
-                    document.getElementById("stat-books").innerText = data.books;
-                    document.getElementById("stat-time").innerText = parseFloat(data.time).toFixed(2) + 's';
-                    document.getElementById("stats").style.display = "flex";
-                } else {
-                    const errorData = await res.json();
-                    document.getElementById("progress").innerText = lang === "es" ? 
-                        `Error: ${errorData.message || 'Error desconocido'}` : 
-                        `Error: ${errorData.message || 'Unknown error'}`;
-                }
-            } catch (error) {
-                document.getElementById("progress").innerText = lang === "es" ? 
-                    "Error de conexión" : "Connection error";
-            } finally {
-                // Rehabilitar el botón
-                button.disabled = false;
-                button.style.opacity = "1";
-                button.style.cursor = "pointer";
+                document.getElementById("progress").innerText = texts[lang].done;
+                // Mostrar stats reales
+                document.getElementById("stat-books").innerText = data.books;
+                document.getElementById("stat-time").innerText = parseFloat(data.time).toFixed(2) + 's';
+                document.getElementById("stats").style.display = "flex";
+            } else {
+                document.getElementById("progress").innerText = "Error";
             }
         };
     </script>
