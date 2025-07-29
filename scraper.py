@@ -20,10 +20,14 @@ def get_all_page_urls():
             if pager:
                 text = pager.inner_text()
                 last_page = int(text.strip().split()[-1])
-        except Exception:
-            pass
+                print(f"Found {last_page} total pages")
+        except Exception as e:
+            print(f"Error getting page count: {e}")
         browser.close()
-    return [f'{BASE_URL}catalogue/page-{i}.html' if i > 1 else f'{BASE_URL}catalogue/page-1.html' for i in range(1, last_page+1)]
+    
+    urls = [f'{BASE_URL}catalogue/page-{i}.html' if i > 1 else f'{BASE_URL}catalogue/page-1.html' for i in range(1, last_page+1)]
+    print(f"Generated {len(urls)} URLs")
+    return urls
 
 def update_progress(current, total, progress_file='progress.json'):
     """Update progress more frequently"""
