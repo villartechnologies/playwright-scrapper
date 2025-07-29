@@ -53,10 +53,11 @@ def run_script():
         # Run script
         result = subprocess.run(['python3', 'scraper.py'], capture_output=True, text=True, check=True)
         
-        print(f"Scraper stdout: {result.stdout}")
+        print(f"Scraper stdout length: {len(result.stdout)}")
         print(f"Scraper stderr: {result.stderr}")
         
         books, elapsed, books_data = 0, 0, []
+        json_found = False
         for line in result.stdout.splitlines():
             if line.strip().startswith('{') and 'books' in line:
                 try:
@@ -64,9 +65,16 @@ def run_script():
                     books = stats.get('books', 0)
                     elapsed = stats.get('time', 0)
                     books_data = stats.get('data', [])
+                    json_found = True
                     print(f"Parsed result: books={books}, elapsed={elapsed}, data_length={len(books_data)}")
                 except json.JSONDecodeError as e:
                     print(f"Error parsing JSON: {e}, line: {line}")
+        
+        if not json_found:
+            print("No JSON found in scraper output!")
+            print("Last 10 lines of output:")
+            for line in result.stdout.splitlines()[-10:]:
+                print(f"  {line}")
         
         # Generate Excel in memory
         if books_data:
@@ -83,8 +91,11 @@ def run_script():
         else:
             print("No books data to generate Excel")
         
-        return jsonify({'status': 'ok', 'books': books, 'time': elapsed, 'has_file': bool(books_data)})
+        result_data = {'status': 'ok', 'books': books, 'time': elapsed, 'has_file': bool(books_data)}
+        print(f"Returning result: {result_data}")
+        return jsonify(result_data)
     except Exception as e:
+        print(f"Error in run_script: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         script_running = False
