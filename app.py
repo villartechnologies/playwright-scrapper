@@ -51,7 +51,9 @@ def run_script():
             json.dump({'progress': 0, 'current': 0, 'total': 100}, f)
         
         # Run script
+        print("Starting scraper...")
         result = subprocess.run(['python3', 'scraper.py'], capture_output=True, text=True, check=True)
+        print("Scraper finished!")
         
         print(f"Scraper stdout length: {len(result.stdout)}")
         print(f"Scraper stderr: {result.stderr}")
@@ -79,15 +81,19 @@ def run_script():
         # Generate Excel in memory
         if books_data:
             print(f"Generating Excel with {len(books_data)} books")
-            df = pd.DataFrame(books_data)
-            excel_buffer = BytesIO()
-            df.to_excel(excel_buffer, index=False)
-            excel_buffer.seek(0)
-            
-            # Store in memory for download
-            app.excel_data = excel_buffer.getvalue()
-            app.excel_filename = f'books_{int(time.time())}.xlsx'
-            print(f"Excel file generated: {app.excel_filename}")
+            try:
+                df = pd.DataFrame(books_data)
+                excel_buffer = BytesIO()
+                df.to_excel(excel_buffer, index=False)
+                excel_buffer.seek(0)
+                
+                # Store in memory for download
+                app.excel_data = excel_buffer.getvalue()
+                app.excel_filename = f'books_{int(time.time())}.xlsx'
+                print(f"Excel file generated: {app.excel_filename}")
+                print(f"Excel data size: {len(app.excel_data)} bytes")
+            except Exception as e:
+                print(f"Error generating Excel: {e}")
         else:
             print("No books data to generate Excel")
         
